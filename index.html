@@ -1,0 +1,626 @@
+<title>RSC Threat Webhooks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #0b0d16;
+  --surface: #131621;
+  --raised: #1c1f2e;
+  --border: #252840;
+  --text: #d8dcf2;
+  --muted: #6e739a;
+  --accent: #5578ff;
+  --accent-dim: rgba(85,120,255,.1);
+  --critical: #e84545;
+  --warning: #f0a040;
+  --info: #5578ff;
+  --success: #2ec97d;
+}
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+  --bg: #f4f5fb; --surface: #fff; --raised: #eceef8; --border: #d0d4ee;
+  --text: #0c0e1a; --muted: #5a5f80; --accent: #3a5ce8; --accent-dim: rgba(58,92,232,.07);
+}}
+:root[data-theme="light"] {
+  --bg: #f4f5fb; --surface: #fff; --raised: #eceef8; --border: #d0d4ee;
+  --text: #0c0e1a; --muted: #5a5f80; --accent: #3a5ce8; --accent-dim: rgba(58,92,232,.07);
+}
+:root[data-theme="dark"] {
+  --bg: #0b0d16; --surface: #131621; --raised: #1c1f2e; --border: #252840;
+  --text: #d8dcf2; --muted: #6e739a; --accent: #5578ff; --accent-dim: rgba(85,120,255,.1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Header ── */
+.pg-header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  height: 50px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.pg-header h1 {
+  font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700;
+  letter-spacing: .03em; white-space: nowrap;
+}
+.pg-header .hright { display: flex; align-items: center; gap: 10px; }
+.theme-btn {
+  background: var(--raised); border: 1px solid var(--border); color: var(--muted);
+  border-radius: 5px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-family: inherit;
+}
+.theme-btn:hover { color: var(--text); }
+
+/* ── Layout ── */
+.layout { display: flex; flex: 1; min-height: 0; }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 252px; flex-shrink: 0;
+  position: sticky; top: 50px; height: calc(100vh - 50px);
+  overflow-y: auto; border-right: 1px solid var(--border);
+  background: var(--surface); padding: 16px 0 40px;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.nav-group { margin-bottom: 2px; }
+.nav-group-label {
+  display: block; padding: 10px 16px 3px;
+  font-size: 9.5px; font-weight: 500; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.nav-list { list-style: none; }
+.nav-list a {
+  display: flex; align-items: center; gap: 7px;
+  padding: 4px 16px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--muted); text-decoration: none;
+  transition: color .1s, background .1s;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nav-list a:hover { color: var(--text); background: var(--raised); }
+.nav-list a.active { color: var(--text); background: var(--accent-dim); }
+.dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.dot-critical { background: var(--critical); }
+.dot-warning  { background: var(--warning); }
+.dot-info     { background: var(--info); }
+
+/* ── Main ── */
+.content { flex: 1; min-width: 0; padding: 0 0 80px; }
+
+/* ── Category header ── */
+.cat-head {
+  padding: 36px 40px 20px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 50px; z-index: 10;
+  background: var(--bg);
+}
+.cat-head:first-child { padding-top: 28px; }
+.cat-head h2 {
+  font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700;
+  letter-spacing: -.01em;
+}
+.cat-head p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* ── Event entry ── */
+.event {
+  padding: 28px 40px 0;
+  scroll-margin-top: 130px;
+}
+.event + .event { border-top: 1px solid var(--border); padding-top: 28px; }
+.event-title {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap;
+}
+.event-name {
+  font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 500;
+}
+.sev {
+  font-size: 10px; font-weight: 500; letter-spacing: .07em;
+  text-transform: uppercase; padding: 2px 7px; border-radius: 4px;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+.sev-critical { background: rgba(232,69,69,.14); color: var(--critical); border: 1px solid rgba(232,69,69,.22); }
+.sev-warning  { background: rgba(240,160,64,.14); color: var(--warning);  border: 1px solid rgba(240,160,64,.22); }
+.sev-info     { background: rgba(85,120,255,.14);  color: var(--info);     border: 1px solid rgba(85,120,255,.22); }
+.sev-class    { background: var(--raised); color: var(--muted); border: 1px solid var(--border); }
+.constructed  { background: var(--raised); color: var(--muted); border: 1px solid var(--border);
+                font-style: italic; font-size: 10px; }
+
+/* ── JSON block ── */
+.json-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden; margin-bottom: 28px;
+}
+.json-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 14px; border-bottom: 1px solid var(--border); background: var(--raised);
+}
+.json-bar-label { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+.copy-btn {
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  border-radius: 4px; padding: 2px 9px; font-size: 11px;
+  cursor: pointer; font-family: inherit; transition: color .1s, border-color .1s;
+}
+.copy-btn:hover { color: var(--text); border-color: var(--muted); }
+.copy-btn.copied { color: var(--success); border-color: var(--success); }
+.json-body { overflow-x: auto; padding: 16px 18px; }
+.json-body pre {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  line-height: 1.7; white-space: pre;
+}
+.jk { color: #7bb3ff; }
+.js { color: #a8d8a8; }
+.jn { color: #f0c070; }
+.jb { color: #d4a0ff; }
+.jz { color: var(--muted); }
+
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .jk { color: #2255cc; } }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .js { color: #1a7a1a; } }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .jn { color: #7a4d00; } }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .jb { color: #6e22a0; } }
+:root[data-theme="light"] .jk { color: #2255cc; }
+:root[data-theme="light"] .js { color: #1a7a1a; }
+:root[data-theme="light"] .jn { color: #7a4d00; }
+:root[data-theme="light"] .jb { color: #6e22a0; }
+
+@media (max-width: 768px) { .sidebar { display: none; } .content { padding: 0 0 60px; } .event, .cat-head { padding-left: 16px; padding-right: 16px; } }
+</style>
+
+<div class="pg-header">
+  <h1>RSC Threat Webhook Reference</h1>
+  <div class="hright">
+    <button class="theme-btn" onclick="toggleTheme()">Toggle theme</button>
+  </div>
+</div>
+
+<div class="layout">
+  <nav class="sidebar">
+    <div class="nav-group">
+      <span class="nav-group-label">Threat Hunt</span>
+      <ul class="nav-list">
+        <li><a href="#hunt-started"><span class="dot dot-info"></span>ThreatHuntStarted</a></li>
+        <li><a href="#hunt-inprogress"><span class="dot dot-info"></span>ThreatHuntInProgress</a></li>
+        <li><a href="#hunt-match"><span class="dot dot-critical"></span>ThreatHuntMatchDetails</a></li>
+        <li><a href="#hunt-snappable"><span class="dot dot-critical"></span>ThreatHuntSnappableSummary</a></li>
+        <li><a href="#hunt-succeeded"><span class="dot dot-info"></span>ThreatHuntSucceeded</a></li>
+        <li><a href="#hunt-partial"><span class="dot dot-critical"></span>ThreatHuntPartiallySucceeded</a></li>
+        <li><a href="#hunt-failed"><span class="dot dot-critical"></span>ThreatHuntFailed</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <span class="nav-group-label">Threat Monitoring</span>
+      <ul class="nav-list">
+        <li><a href="#tm-hash-match"><span class="dot dot-critical"></span>ThreatMonitoringHashMatchDetails</a></li>
+        <li><a href="#tm-yara-match"><span class="dot dot-critical"></span>ThreatMonitoringYaraMatchDetails</a></li>
+        <li><a href="#tm-hash-found"><span class="dot dot-critical"></span>ThreatMonitoringHashMatchesFound</a></li>
+        <li><a href="#tm-yara-found"><span class="dot dot-critical"></span>ThreatMonitoringYaraMatchesFound</a></li>
+        <li><a href="#tm-full-hash"><span class="dot dot-critical"></span>ThreatMonitoringFullHashAnalysisMatchesFound</a></li>
+        <li><a href="#tm-full-yara"><span class="dot dot-critical"></span>ThreatMonitoringFullYaraAnalysisMatchesFound</a></li>
+        <li><a href="#tm-catalog"><span class="dot dot-critical"></span>ThreatMonitoringHashCatalogAnalysisMatchesFound</a></li>
+      </ul>
+    </div>
+    <div class="nav-group">
+      <span class="nav-group-label">Threat Intel Feed</span>
+      <ul class="nav-list">
+        <li><a href="#tf-dl-success"><span class="dot dot-info"></span>DownloadThreatFeedSuccess</a></li>
+        <li><a href="#tf-dl-fail"><span class="dot dot-warning"></span>DownloadThreatFeedFailure</a></li>
+        <li><a href="#tf-new-success"><span class="dot dot-info"></span>NewThreatIntelSuccess</a></li>
+        <li><a href="#tf-new-fail"><span class="dot dot-info"></span>NewThreatIntelFailure</a></li>
+        <li><a href="#tf-sync-success"><span class="dot dot-info"></span>ThreatIntelSyncSuccess</a></li>
+        <li><a href="#tf-sync-fail"><span class="dot dot-critical"></span>ThreatIntelSyncFailure</a></li>
+        <li><a href="#tf-catalog-match"><span class="dot dot-critical"></span>ThreatMonitoringHashCatalogAnalysisMatchesFound</a></li>
+        <li><a href="#tf-catalog-none"><span class="dot dot-info"></span>ThreatMonitoringHashCatalogAnalysisNoMatchesFound</a></li>
+        <li><a href="#tf-catalog-fail"><span class="dot dot-info"></span>ThreatMonitoringHashCatalogAnalysisFailed</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="content">
+
+    <!-- ═══ THREAT HUNT ═══ -->
+    <div class="cat-head">
+      <h2>Threat Hunt</h2>
+      <p>class: ThreatHunt · component: OrionThreatHunt · seriesId = hunt UUID (stable across all events for a given hunt)</p>
+    </div>
+
+    <div class="event" id="hunt-started">
+      <div class="event-title">
+        <span class="event-name">ThreatHuntStarted</span>
+        <span class="sev sev-info">INFO</span>
+        <span class="sev sev-class">status: TaskSuccess</span>
+        <span class="sev sev-class">eventInfo: null</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Initiation</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-hunt-started"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="hunt-inprogress">
+      <div class="event-title">
+        <span class="event-name">ThreatHuntInProgress</span>
+        <span class="sev sev-info">INFO</span>
+        <span class="sev sev-class">status: Running</span>
+        <span class="sev sev-class">eventInfo: null</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Starting</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-hunt-inprogress"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="hunt-match">
+      <div class="event-title">
+        <span class="event-name">ThreatHuntMatchDetails</span>
+        <span class="sev sev-critical">CRITICAL</span>
+        <span class="sev sev-class">status: Running</span>
+        <span class="sev sev-class">eventInfo: ThreatHuntMatch</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Match (per file, per IOC)</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-hunt-match"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="hunt-snappable">
+      <div class="event-title">
+        <span class="event-name">ThreatHuntSnappableSummary</span>
+        <span class="sev sev-critical">CRITICAL</span>
+        <span class="sev sev-class">status: Running</span>
+        <span class="sev sev-class">eventInfo: ThreatHuntEventInfo</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Per-object summary (aggregated matches for one snappable)</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-hunt-snappable"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="hunt-succeeded">
+      <div class="event-title">
+        <span class="event-name">ThreatHuntSucceeded</span>
+        <span class="sev sev-info">INFO</span>
+        <span class="sev sev-class">status: Success</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Succeeded</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-hunt-succeeded"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="hunt-partial">
+      <div class="event-title">
+        <span class="event-name">ThreatHuntPartiallySucceeded</span>
+        <span class="sev sev-critical">CRITICAL</span>
+        <span class="sev sev-class">status: Failure</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Partially Succeeded</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-hunt-partial"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="hunt-failed">
+      <div class="event-title">
+        <span class="event-name">ThreatHuntFailed</span>
+        <span class="sev sev-critical">CRITICAL</span>
+        <span class="sev sev-class">status: Failure</span>
+        <span class="sev sev-class">eventInfo: null</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Failed</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-hunt-failed"></pre></div>
+      </div>
+    </div>
+
+    <!-- ═══ THREAT MONITORING ═══ -->
+    <div class="cat-head">
+      <h2>Threat Monitoring</h2>
+      <p>class: ThreatMonitoring · Match-level events fire once per matched file. Summary events fire once per scan.</p>
+    </div>
+
+    <div class="event" id="tm-hash-match">
+      <div class="event-title">
+        <span class="event-name">ThreatMonitoringHashMatchDetails</span>
+        <span class="sev sev-critical">CRITICAL</span>
+        <span class="sev sev-class">eventInfo: ThreatMatch</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Hash Match (per file)</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tm-hash-match"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tm-yara-match">
+      <div class="event-title">
+        <span class="event-name">ThreatMonitoringYaraMatchDetails</span>
+        <span class="sev sev-critical">CRITICAL</span>
+        <span class="sev sev-class">eventInfo: ThreatMatch</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">YARA Match (per file)</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tm-yara-match"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tm-hash-found">
+      <div class="event-title">
+        <span class="event-name">ThreatMonitoringHashMatchesFound</span>
+        <span class="sev sev-critical">CRITICAL</span>
+        <span class="sev sev-class">eventInfo: ThreatDetectedEventInfo</span>
+        <span class="sev sev-class">IsFullScan: false</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Hash Match Summary (incremental scan)</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tm-hash-found"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tm-yara-found">
+      <div class="event-title">
+        <span class="event-name">ThreatMonitoringYaraMatchesFound</span>
+        <span class="sev sev-critical">CRITICAL</span>
+        <span class="sev sev-class">eventInfo: ThreatDetectedEventInfo</span>
+        <span class="sev sev-class">IsFullScan: false</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">YARA Match Summary (incremental scan)</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tm-yara-found"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tm-full-hash">
+      <div class="event-title">
+        <span class="event-name">ThreatMonitoringFullHashAnalysisMatchesFound</span>
+        <span class="sev sev-critical">CRITICAL</span>
+        <span class="sev sev-class">eventInfo: ThreatDetectedEventInfo</span>
+        <span class="sev sev-class">IsFullScan: true</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Hash Match Summary (full scan)</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tm-full-hash"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tm-full-yara">
+      <div class="event-title">
+        <span class="event-name">ThreatMonitoringFullYaraAnalysisMatchesFound</span>
+        <span class="sev sev-critical">CRITICAL</span>
+        <span class="sev sev-class">eventInfo: ThreatDetectedEventInfo</span>
+        <span class="sev sev-class">IsFullScan: true</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">YARA Match Summary (full scan)</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tm-full-yara"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tm-catalog">
+      <div class="event-title">
+        <span class="event-name">ThreatMonitoringHashCatalogAnalysisMatchesFound</span>
+        <span class="sev sev-critical">CRITICAL</span>
+        <span class="sev sev-class">eventInfo: ThreatDetectedEventInfo</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Hash Catalog Analysis (matches found)</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tm-catalog"></pre></div>
+      </div>
+    </div>
+
+    <!-- ═══ THREAT INTEL FEED ═══ -->
+    <div class="cat-head">
+      <h2>Threat Intel Feed</h2>
+      <p>class: ThreatFeed · Operational lifecycle events for feed sync. Most carry no eventInfo.</p>
+    </div>
+
+    <div class="event" id="tf-dl-success">
+      <div class="event-title">
+        <span class="event-name">DownloadThreatFeedSuccess</span>
+        <span class="sev sev-info">INFO</span>
+        <span class="sev sev-class">eventInfo: null</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Feed Download Success</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tf-dl-success"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tf-dl-fail">
+      <div class="event-title">
+        <span class="event-name">DownloadThreatFeedFailure</span>
+        <span class="sev sev-warning">WARNING</span>
+        <span class="sev sev-class">eventInfo: null</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Feed Download Failure</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tf-dl-fail"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tf-new-success">
+      <div class="event-title">
+        <span class="event-name">NewThreatIntelSuccess</span>
+        <span class="sev sev-info">INFO</span>
+        <span class="sev sev-class">eventInfo: null</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">New Threat Intel Bundled</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tf-new-success"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tf-new-fail">
+      <div class="event-title">
+        <span class="event-name">NewThreatIntelFailure</span>
+        <span class="sev sev-info">INFO</span>
+        <span class="sev sev-class">eventInfo: null</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">New Threat Intel Failed</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tf-new-fail"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tf-sync-success">
+      <div class="event-title">
+        <span class="event-name">ThreatIntelSyncSuccess</span>
+        <span class="sev sev-info">INFO</span>
+        <span class="sev sev-class">eventInfo: null</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Feed Sync Success</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tf-sync-success"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tf-sync-fail">
+      <div class="event-title">
+        <span class="event-name">ThreatIntelSyncFailure</span>
+        <span class="sev sev-critical">CRITICAL</span>
+        <span class="sev sev-class">eventInfo: null</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Feed Sync Failure</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tf-sync-fail"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tf-catalog-match">
+      <div class="event-title">
+        <span class="event-name">ThreatMonitoringHashCatalogAnalysisMatchesFound</span>
+        <span class="sev sev-critical">CRITICAL</span>
+        <span class="sev sev-class">class: ThreatFeed</span>
+        <span class="sev sev-class">eventInfo: ThreatDetectedEventInfo</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Hash Catalog Analysis Matches Found (via feed sync)</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tf-catalog-match"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tf-catalog-none">
+      <div class="event-title">
+        <span class="event-name">ThreatMonitoringHashCatalogAnalysisNoMatchesFound</span>
+        <span class="sev sev-info">INFO</span>
+        <span class="sev sev-class">eventInfo: null</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Hash Catalog Analysis — No Matches</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tf-catalog-none"></pre></div>
+      </div>
+    </div>
+
+    <div class="event" id="tf-catalog-fail">
+      <div class="event-title">
+        <span class="event-name">ThreatMonitoringHashCatalogAnalysisFailed</span>
+        <span class="sev sev-info">INFO</span>
+        <span class="sev sev-class">eventInfo: null</span>
+        <span class="sev constructed">constructed</span>
+      </div>
+      <div class="json-wrap">
+        <div class="json-bar"><span class="json-bar-label">Hash Catalog Analysis Failed</span><button class="copy-btn" onclick="cp(this)">Copy</button></div>
+        <div class="json-body"><pre id="p-tf-catalog-fail"></pre></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const D = {
+"p-hunt-started":{"class":"ThreatHunt","component":"OrionThreatHunt","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":null,"eventName":"ThreatHuntStarted","id":"061e32d6-8fde-4625-978c-80b2a1f43df8","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"OrionThreatHunt","seriesId":"01a043f3-a8b4-71f2-bcfb-2eeb58b7ea1a","status":"TaskSuccess","type":"Event","url":""},"group":"Event","severity":"info","source":"Rubrik Security Cloud","summary":"Unknown user initiated an advanced threat hunt: LB5 Demo 27.","timestamp":"2026-08-27 16:00:37.160280668 +0000 UTC"},
+"p-hunt-inprogress":{"class":"ThreatHunt","component":"OrionThreatHunt","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":null,"eventName":"ThreatHuntInProgress","id":"2f90c99e-3778-462f-8762-1765a6fdfff9","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"OrionThreatHunt","seriesId":"01a043f3-a8b4-71f2-bcfb-2eeb58b7ea1a","status":"Running","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_hunts/01a043f3-a8b4-71f2-bcfb-2eeb58b7ea1a/details?version=v2"},"group":"Event","severity":"info","source":"Rubrik Security Cloud","summary":"Started scanning the object snapshots.","timestamp":"2026-08-27 16:00:38.464280678 +0000 UTC"},
+"p-hunt-match":{"class":"ThreatHunt","component":"OrionThreatHunt","custom_details":{"clusterId":"a1b2c3d4-e5f6-0000-0000-000000000001","clusterName":"prod-cluster-01","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":{"ID":1,"FilePath":"/Users/admin/Downloads/malware.exe","MatchType":"File hash","FilePattern":"","HashValues":[{"Key":"SHA256","Value":"275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f"}],"DetectionTime":"2026-08-27T16:01:15Z","FileModificationTime":"2026-08-26T12:00:00Z","FileCreationTime":"2026-01-15T08:30:00Z","FirstDetectedSnapshotDate":"2026-08-26T00:00:00Z","LastDetectedSnapshotDate":"2026-08-27T00:00:00Z","FileSizeInBytes":45312,"ThreatFamily":"EICARTest","ObjectIps":["10.0.1.45"]},"eventName":"ThreatHuntMatchDetails","id":"a4f1b2c3-d456-7890-abcd-ef1234567890","location":"","logicalSizeInBytes":"","objectId":"f2a3b4c5-d678-0001-0000-000000000001","objectName":"vm-prod-01","objectType":"VirtualMachine","seriesId":"01a043f3-a8b4-71f2-bcfb-2eeb58b7ea1a","status":"Running","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_hunts/01a043f3-a8b4-71f2-bcfb-2eeb58b7ea1a/details?version=v2"},"group":"Event","severity":"critical","source":"Rubrik Security Cloud","summary":"Threat hunt LB5 Demo 27 found a match in vm-prod-01.","timestamp":"2026-08-27 16:01:15.000000000 +0000 UTC"},
+"p-hunt-snappable":{"class":"ThreatHunt","component":"OrionThreatHunt","custom_details":{"clusterId":"a1b2c3d4-e5f6-0000-0000-000000000001","clusterName":"prod-cluster-01","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":{"HuntID":"01a043f3-a8b4-71f2-bcfb-2eeb58b7ea1a","HuntName":"LB5 Demo 27","DetectionTime":"2026-08-27T16:01:15Z","TotalMatches":2,"TotalFiles":2,"ThreatMatches":[{"ID":1,"FilePath":"/Users/admin/Downloads/malware.exe","MatchType":"File hash","FilePattern":"","HashValues":[{"Key":"SHA256","Value":"275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f"}],"DetectionTime":"2026-08-27T16:01:15Z","FileModificationTime":"2026-08-26T12:00:00Z","FileCreationTime":"2026-01-15T08:30:00Z","FirstDetectedSnapshotDate":"2026-08-26T00:00:00Z","LastDetectedSnapshotDate":"2026-08-27T00:00:00Z","FileSizeInBytes":45312,"ThreatFamily":"EICARTest","ObjectIps":["10.0.1.45"]},{"ID":2,"FilePath":"/tmp/dropper.sh","MatchType":"File hash","FilePattern":"","HashValues":[{"Key":"SHA256","Value":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}],"DetectionTime":"2026-08-27T16:02:10Z","FileModificationTime":"2026-08-27T09:10:00Z","FileCreationTime":null,"FirstDetectedSnapshotDate":"2026-08-27T00:00:00Z","LastDetectedSnapshotDate":"2026-08-27T00:00:00Z","FileSizeInBytes":512,"ThreatFamily":"EICARTest","ObjectIps":["10.0.1.45"]}],"LastDetectionTime":"2026-08-27T16:02:10Z","ObjectIps":["10.0.1.45"]},"eventName":"ThreatHuntSnappableSummary","id":"b5c6d7e8-f901-2345-bcde-f12345678901","location":"","logicalSizeInBytes":"","objectId":"f2a3b4c5-d678-0001-0000-000000000001","objectName":"vm-prod-01","objectType":"VirtualMachine","seriesId":"01a043f3-a8b4-71f2-bcfb-2eeb58b7ea1a","status":"Running","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_hunts/01a043f3-a8b4-71f2-bcfb-2eeb58b7ea1a/details?version=v2"},"group":"Event","severity":"critical","source":"Rubrik Security Cloud","summary":"Threat hunt LB5 Demo 27 found 2 matches across 2 files in vm-prod-01.","timestamp":"2026-08-27 16:02:10.000000000 +0000 UTC"},
+"p-hunt-succeeded":{"class":"ThreatHunt","component":"OrionThreatHunt","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":{"ThreatFamilies":null,"TotalMatches":850},"eventName":"ThreatHuntSucceeded","id":"decb3596-4f69-4af5-a8f0-d39fa745f241","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"OrionThreatHunt","seriesId":"01a04418-c564-79fb-b1b5-214a58798e44","status":"Success","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_hunts/01a04418-c564-79fb-b1b5-214a58798e44/details?version=v2"},"group":"Event","severity":"info","source":"Rubrik Security Cloud","summary":"Threat hunt test completed successfully for all the objects.  There were 1 object matches and 850 file  matches.","timestamp":"2026-08-27 16:41:41.619986242 +0000 UTC"},
+"p-hunt-partial":{"class":"ThreatHunt","component":"OrionThreatHunt","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":{"ThreatFamilies":null,"TotalMatches":2},"eventName":"ThreatHuntPartiallySucceeded","id":"7f5e0500-c6ea-46e5-bd28-5a381b91a896","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"OrionThreatHunt","seriesId":"01a03ecd-5cc7-7056-941b-47b66d9ab6b6","status":"Failure","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_hunts/01a03ecd-5cc7-7056-941b-47b66d9ab6b6/details?version=v2"},"group":"Event","severity":"critical","source":"Rubrik Security Cloud","summary":"Threat hunt LB5 Demo 26 partially succeeded with 0  objects successful, 8 objects partially  successful, and 0 objects failing. There were 2 object matches and 2 file  matches.","timestamp":"2026-08-26 20:22:45.504289214 +0000 UTC"},
+"p-hunt-failed":{"class":"ThreatHunt","component":"OrionThreatHunt","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":null,"eventName":"ThreatHuntFailed","id":"b649f721-d87e-42df-8bd6-e9942e7bad94","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"OrionThreatHunt","seriesId":"01a04418-2838-77f4-9367-d9aadd2aabc2","status":"Failure","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_hunts/01a04418-2838-77f4-9367-d9aadd2aabc2/details?version=v2"},"group":"Event","severity":"critical","source":"Rubrik Security Cloud","summary":"Threat hunt test failed to complete. Reason: None of the objects of the threat hunt could be scanned.","timestamp":"2026-08-27 16:40:29.129778395 +0000 UTC"},
+"p-tm-hash-match":{"class":"ThreatMonitoring","component":"OrionThreatMonitoring","custom_details":{"clusterId":"a1b2c3d4-e5f6-0000-0000-000000000001","clusterName":"prod-cluster-01","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":{"ID":42,"FilePath":"/tmp/suspicious.exe","FileSizeInBytes":28160,"MatchType":"File hash","IOCDescription":"Known ransomware dropper","RuleName":"","HashValues":[{"Key":"MD5","Value":"44d88612fea8a8f36de82e1278abb02f"},{"Key":"SHA1","Value":"3395856ce81f2b7382dee72602f798b642f14d8f"},{"Key":"SHA256","Value":"275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f"}],"DetectionTime":"2026-08-27T14:30:00Z","FirstDetectedSnapshotDate":"2026-08-26T00:00:00Z","ThreatFamily":"WannaCry","FeedProviderName":"CrowdStrike","FileModificationTime":"2026-08-26T11:45:00Z","FileCreationTime":"2026-08-20T09:00:00Z","ObjectIps":["192.168.1.100"]},"eventName":"ThreatMonitoringHashMatchDetails","id":"c6d7e8f9-0123-4567-cdef-123456789012","location":"","logicalSizeInBytes":"","objectId":"d7e8f901-2345-0002-0000-000000000002","objectName":"fileserver-prod","objectType":"VolumeGroup","seriesId":"01a05500-1234-5678-abcd-ef1234567890","status":"Running","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_monitoring"},"group":"Event","severity":"critical","source":"Rubrik Security Cloud","summary":"Continuous threat monitoring found a file hash match in fileserver-prod.","timestamp":"2026-08-27 14:30:00.000000000 +0000 UTC"},
+"p-tm-yara-match":{"class":"ThreatMonitoring","component":"OrionThreatMonitoring","custom_details":{"clusterId":"a1b2c3d4-e5f6-0000-0000-000000000001","clusterName":"prod-cluster-01","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":{"ID":43,"FilePath":"/home/user/.config/autorun.sh","FileSizeInBytes":1024,"MatchType":"YARA","IOCDescription":"Suspicious autorun script matching ransomware behavior","RuleName":"detect_ransomware_autorun","HashValues":[],"DetectionTime":"2026-08-27T14:35:00Z","FirstDetectedSnapshotDate":"2026-08-27T00:00:00Z","ThreatFamily":"","FeedProviderName":"CrowdStrike","FileModificationTime":"2026-08-27T09:00:00Z","FileCreationTime":"2026-08-27T09:00:00Z","ObjectIps":["192.168.1.100"]},"eventName":"ThreatMonitoringYaraMatchDetails","id":"d7e8f901-1234-5678-def0-234567890123","location":"","logicalSizeInBytes":"","objectId":"d7e8f901-2345-0002-0000-000000000002","objectName":"fileserver-prod","objectType":"VolumeGroup","seriesId":"01a05500-1234-5678-abcd-ef1234567890","status":"Running","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_monitoring"},"group":"Event","severity":"critical","source":"Rubrik Security Cloud","summary":"Continuous threat monitoring found a YARA rule match in fileserver-prod.","timestamp":"2026-08-27 14:35:00.000000000 +0000 UTC"},
+"p-tm-hash-found":{"class":"ThreatMonitoring","component":"OrionThreatMonitoring","custom_details":{"clusterId":"a1b2c3d4-e5f6-0000-0000-000000000001","clusterName":"prod-cluster-01","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":{"IOCTypes":["File hash"],"TotalMatches":5,"TotalFiles":3,"IsFullScan":false,"ThreatMatches":[{"ID":42,"FilePath":"/tmp/suspicious.exe","FileSizeInBytes":28160,"MatchType":"File hash","IOCDescription":"Known ransomware dropper","RuleName":"","HashValues":[{"Key":"MD5","Value":"44d88612fea8a8f36de82e1278abb02f"},{"Key":"SHA1","Value":"3395856ce81f2b7382dee72602f798b642f14d8f"},{"Key":"SHA256","Value":"275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f"}],"DetectionTime":"2026-08-27T14:30:00Z","FirstDetectedSnapshotDate":"2026-08-26T00:00:00Z","ThreatFamily":"WannaCry","FeedProviderName":"CrowdStrike","FileModificationTime":"2026-08-26T11:45:00Z","FileCreationTime":"2026-08-20T09:00:00Z","ObjectIps":["192.168.1.100"]}],"FeedProviders":["CrowdStrike"],"LastDetectionTime":"2026-08-27T14:30:05Z","ObjectIps":["192.168.1.100"]},"eventName":"ThreatMonitoringHashMatchesFound","id":"e8f90123-2345-6789-ef01-345678901234","location":"","logicalSizeInBytes":"","objectId":"d7e8f901-2345-0002-0000-000000000002","objectName":"fileserver-prod","objectType":"VolumeGroup","seriesId":"01a05501-1234-5678-abcd-ef1234567891","status":"TaskSuccess","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_monitoring"},"group":"Event","severity":"critical","source":"Rubrik Security Cloud","summary":"Continuous threat monitoring found 5 file hash matches across 3 files in fileserver-prod.","timestamp":"2026-08-27 14:30:05.000000000 +0000 UTC"},
+"p-tm-yara-found":{"class":"ThreatMonitoring","component":"OrionThreatMonitoring","custom_details":{"clusterId":"a1b2c3d4-e5f6-0000-0000-000000000001","clusterName":"prod-cluster-01","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":{"IOCTypes":["YARA"],"TotalMatches":2,"TotalFiles":1,"IsFullScan":false,"ThreatMatches":[{"ID":43,"FilePath":"/home/user/.config/autorun.sh","FileSizeInBytes":1024,"MatchType":"YARA","IOCDescription":"Suspicious autorun script","RuleName":"detect_ransomware_autorun","HashValues":[],"DetectionTime":"2026-08-27T14:35:00Z","FirstDetectedSnapshotDate":"2026-08-27T00:00:00Z","ThreatFamily":"","FeedProviderName":"CrowdStrike","FileModificationTime":"2026-08-27T09:00:00Z","FileCreationTime":"2026-08-27T09:00:00Z","ObjectIps":["192.168.1.100"]}],"FeedProviders":["CrowdStrike"],"LastDetectionTime":"2026-08-27T14:35:02Z","ObjectIps":["192.168.1.100"]},"eventName":"ThreatMonitoringYaraMatchesFound","id":"f9012345-3456-7890-f012-456789012345","location":"","logicalSizeInBytes":"","objectId":"d7e8f901-2345-0002-0000-000000000002","objectName":"fileserver-prod","objectType":"VolumeGroup","seriesId":"01a05501-1234-5678-abcd-ef1234567892","status":"TaskSuccess","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_monitoring"},"group":"Event","severity":"critical","source":"Rubrik Security Cloud","summary":"Continuous threat monitoring found 2 YARA rule matches in fileserver-prod.","timestamp":"2026-08-27 14:35:02.000000000 +0000 UTC"},
+"p-tm-full-hash":{"class":"ThreatMonitoring","component":"OrionThreatMonitoring","custom_details":{"clusterId":"a1b2c3d4-e5f6-0000-0000-000000000001","clusterName":"prod-cluster-01","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":{"IOCTypes":["File hash"],"TotalMatches":12,"TotalFiles":8,"IsFullScan":true,"ThreatMatches":[{"ID":1,"FilePath":"/tmp/suspicious.exe","FileSizeInBytes":28160,"MatchType":"File hash","IOCDescription":"Known ransomware dropper","RuleName":"","HashValues":[{"Key":"MD5","Value":"44d88612fea8a8f36de82e1278abb02f"},{"Key":"SHA1","Value":"3395856ce81f2b7382dee72602f798b642f14d8f"},{"Key":"SHA256","Value":"275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f"}],"DetectionTime":"2026-08-27T12:00:00Z","FirstDetectedSnapshotDate":"2026-08-01T00:00:00Z","ThreatFamily":"WannaCry","FeedProviderName":"CrowdStrike","FileModificationTime":"2026-07-31T08:00:00Z","FileCreationTime":"2026-07-01T00:00:00Z","ObjectIps":["192.168.1.100"]}],"FeedProviders":["CrowdStrike"],"LastDetectionTime":"2026-08-27T12:05:00Z","ObjectIps":["192.168.1.100"]},"eventName":"ThreatMonitoringFullHashAnalysisMatchesFound","id":"01234567-4567-8901-0123-567890123456","location":"","logicalSizeInBytes":"","objectId":"d7e8f901-2345-0002-0000-000000000002","objectName":"fileserver-prod","objectType":"VolumeGroup","seriesId":"01a05502-1234-5678-abcd-ef1234567893","status":"TaskSuccess","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_monitoring"},"group":"Event","severity":"critical","source":"Rubrik Security Cloud","summary":"Full hash analysis of fileserver-prod found 12 matches across 8 files.","timestamp":"2026-08-27 12:05:00.000000000 +0000 UTC"},
+"p-tm-full-yara":{"class":"ThreatMonitoring","component":"OrionThreatMonitoring","custom_details":{"clusterId":"a1b2c3d4-e5f6-0000-0000-000000000001","clusterName":"prod-cluster-01","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":{"IOCTypes":["YARA"],"TotalMatches":3,"TotalFiles":2,"IsFullScan":true,"ThreatMatches":[{"ID":1,"FilePath":"/home/user/.config/autorun.sh","FileSizeInBytes":1024,"MatchType":"YARA","IOCDescription":"Suspicious autorun script","RuleName":"detect_ransomware_autorun","HashValues":[],"DetectionTime":"2026-08-27T12:10:00Z","FirstDetectedSnapshotDate":"2026-08-01T00:00:00Z","ThreatFamily":"","FeedProviderName":"CrowdStrike","FileModificationTime":"2026-08-01T07:00:00Z","FileCreationTime":"2026-08-01T07:00:00Z","ObjectIps":["192.168.1.100"]}],"FeedProviders":["CrowdStrike"],"LastDetectionTime":"2026-08-27T12:10:05Z","ObjectIps":["192.168.1.100"]},"eventName":"ThreatMonitoringFullYaraAnalysisMatchesFound","id":"12345678-5678-9012-1234-678901234567","location":"","logicalSizeInBytes":"","objectId":"d7e8f901-2345-0002-0000-000000000002","objectName":"fileserver-prod","objectType":"VolumeGroup","seriesId":"01a05503-1234-5678-abcd-ef1234567894","status":"TaskSuccess","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_monitoring"},"group":"Event","severity":"critical","source":"Rubrik Security Cloud","summary":"Full YARA analysis of fileserver-prod found 3 matches across 2 files.","timestamp":"2026-08-27 12:10:05.000000000 +0000 UTC"},
+"p-tm-catalog":{"class":"ThreatMonitoring","component":"OrionThreatMonitoring","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":{"IOCTypes":["File hash"],"TotalMatches":7,"TotalFiles":5,"IsFullScan":true,"ThreatMatches":[{"ID":1,"FilePath":"/data/uploads/payload.dll","FileSizeInBytes":102400,"MatchType":"File hash","IOCDescription":"Cobalt Strike beacon","RuleName":"","HashValues":[{"Key":"MD5","Value":"098f6bcd4621d373cade4e832627b4f6"},{"Key":"SHA1","Value":"a94a8fe5ccb19ba61c4c0873d391e987982fbbd3"},{"Key":"SHA256","Value":"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"}],"DetectionTime":"2026-08-27T10:00:00Z","FirstDetectedSnapshotDate":"2026-08-25T00:00:00Z","ThreatFamily":"CobaltStrike","FeedProviderName":"CrowdStrike","FileModificationTime":"2026-08-24T16:00:00Z","FileCreationTime":"2026-08-24T15:00:00Z","ObjectIps":null}],"FeedProviders":["CrowdStrike"],"LastDetectionTime":"2026-08-27T10:05:00Z","ObjectIps":null},"eventName":"ThreatMonitoringHashCatalogAnalysisMatchesFound","id":"23456789-6789-0123-2345-789012345678","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"ThreatFeed","seriesId":"01a05504-1234-5678-abcd-ef1234567895","status":"TaskSuccess","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_monitoring"},"group":"Event","severity":"critical","source":"Rubrik Security Cloud","summary":"Hash catalog analysis found 7 matches across 5 files.","timestamp":"2026-08-27 10:05:00.000000000 +0000 UTC"},
+"p-tf-dl-success":{"class":"ThreatFeed","component":"OrionThreatFeed","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":null,"eventName":"DownloadThreatFeedSuccess","id":"34567890-7890-1234-3456-890123456789","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"ThreatFeed","seriesId":"01a05600-1234-5678-abcd-ef1234567896","status":"TaskSuccess","type":"Event","url":""},"group":"Event","severity":"info","source":"Rubrik Security Cloud","summary":"Threat intelligence feed downloaded successfully from CrowdStrike.","timestamp":"2026-08-27 08:00:00.000000000 +0000 UTC"},
+"p-tf-dl-fail":{"class":"ThreatFeed","component":"OrionThreatFeed","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"FEED_DOWNLOAD_TIMEOUT","errorId":"","errorMessage":"Connection timed out","errorReason":"Feed provider endpoint did not respond within the timeout window","errorRemedy":"","eventInfo":null,"eventName":"DownloadThreatFeedFailure","id":"45678901-8901-2345-4567-901234567890","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"ThreatFeed","seriesId":"01a05601-1234-5678-abcd-ef1234567897","status":"Failure","type":"Event","url":""},"group":"Event","severity":"warning","source":"Rubrik Security Cloud","summary":"Failed to download threat intelligence feed from CrowdStrike. Reason: Connection timed out.","timestamp":"2026-08-27 08:05:00.000000000 +0000 UTC"},
+"p-tf-new-success":{"class":"ThreatFeed","component":"OrionThreatFeed","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":null,"eventName":"NewThreatIntelSuccess","id":"56789012-9012-3456-5678-012345678901","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"ThreatFeed","seriesId":"01a05602-1234-5678-abcd-ef1234567898","status":"TaskSuccess","type":"Event","url":""},"group":"Event","severity":"info","source":"Rubrik Security Cloud","summary":"New threat intelligence bundle is ready for distribution to protected clusters.","timestamp":"2026-08-27 08:10:00.000000000 +0000 UTC"},
+"p-tf-new-fail":{"class":"ThreatFeed","component":"OrionThreatFeed","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":null,"eventName":"NewThreatIntelFailure","id":"67890123-0123-4567-6789-123456789012","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"ThreatFeed","seriesId":"01a05603-1234-5678-abcd-ef1234567899","status":"Failure","type":"Event","url":""},"group":"Event","severity":"info","source":"Rubrik Security Cloud","summary":"Failed to process new threat intelligence data for distribution.","timestamp":"2026-08-27 08:15:00.000000000 +0000 UTC"},
+"p-tf-sync-success":{"class":"ThreatFeed","component":"OrionThreatFeed","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":null,"eventName":"ThreatIntelSyncSuccess","id":"78901234-1234-5678-7890-234567890123","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"ThreatFeed","seriesId":"01a05604-1234-5678-abcd-ef1234567900","status":"TaskSuccess","type":"Event","url":""},"group":"Event","severity":"info","source":"Rubrik Security Cloud","summary":"Threat intelligence data synchronized successfully to all protected clusters.","timestamp":"2026-08-27 08:20:00.000000000 +0000 UTC"},
+"p-tf-sync-fail":{"class":"ThreatFeed","component":"OrionThreatFeed","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"FEED_SYNC_FAILED","errorId":"","errorMessage":"Failed to sync to 3 of 5 clusters","errorReason":"Clusters unreachable during sync window","errorRemedy":"Verify cluster connectivity and retry","eventInfo":null,"eventName":"ThreatIntelSyncFailure","id":"89012345-2345-6789-8901-345678901234","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"ThreatFeed","seriesId":"01a05605-1234-5678-abcd-ef1234567901","status":"Failure","type":"Event","url":""},"group":"Event","severity":"critical","source":"Rubrik Security Cloud","summary":"Threat intelligence sync failed. 3 of 5 clusters may have stale IOC data. Reason: Clusters unreachable during sync window.","timestamp":"2026-08-27 08:25:00.000000000 +0000 UTC"},
+"p-tf-catalog-match":{"class":"ThreatFeed","component":"OrionThreatFeed","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":{"IOCTypes":["File hash"],"TotalMatches":4,"TotalFiles":3,"IsFullScan":true,"ThreatMatches":[{"ID":1,"FilePath":"/data/uploads/payload.dll","FileSizeInBytes":102400,"MatchType":"File hash","IOCDescription":"Cobalt Strike beacon","RuleName":"","HashValues":[{"Key":"MD5","Value":"098f6bcd4621d373cade4e832627b4f6"},{"Key":"SHA1","Value":"a94a8fe5ccb19ba61c4c0873d391e987982fbbd3"},{"Key":"SHA256","Value":"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"}],"DetectionTime":"2026-08-27T09:00:00Z","FirstDetectedSnapshotDate":"2026-08-25T00:00:00Z","ThreatFamily":"CobaltStrike","FeedProviderName":"CrowdStrike","FileModificationTime":"2026-08-24T16:00:00Z","FileCreationTime":"2026-08-24T15:00:00Z","ObjectIps":null}],"FeedProviders":["CrowdStrike"],"LastDetectionTime":"2026-08-27T09:05:00Z","ObjectIps":null},"eventName":"ThreatMonitoringHashCatalogAnalysisMatchesFound","id":"90123456-3456-7890-9012-456789012345","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"ThreatFeed","seriesId":"01a05606-1234-5678-abcd-ef1234567902","status":"TaskSuccess","type":"Event","url":"https://rubrik-dc.my.rubrik.com/radar/threat_monitoring"},"group":"Event","severity":"critical","source":"Rubrik Security Cloud","summary":"Hash catalog analysis triggered by feed sync found 4 matches across 3 files.","timestamp":"2026-08-27 09:05:00.000000000 +0000 UTC"},
+"p-tf-catalog-none":{"class":"ThreatFeed","component":"OrionThreatFeed","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"","errorId":"","errorMessage":"","errorReason":"","errorRemedy":"","eventInfo":null,"eventName":"ThreatMonitoringHashCatalogAnalysisNoMatchesFound","id":"01234567-4567-8901-0123-567890123456","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"ThreatFeed","seriesId":"01a05607-1234-5678-abcd-ef1234567903","status":"TaskSuccess","type":"Event","url":""},"group":"Event","severity":"info","source":"Rubrik Security Cloud","summary":"Hash catalog analysis completed. No matches found.","timestamp":"2026-08-27 09:10:00.000000000 +0000 UTC"},
+"p-tf-catalog-fail":{"class":"ThreatFeed","component":"OrionThreatFeed","custom_details":{"clusterId":"00000000-0000-0000-0000-000000000000","clusterName":"Rubrik Security Cloud","customerID":"rubrik-dc","dataTransferredInBytes":"","effectiveThroughput":"","errorCode":"CATALOG_ANALYSIS_FAILED","errorId":"","errorMessage":"Hash catalog scan did not complete","errorReason":"Insufficient resources to process catalog within time limit","errorRemedy":"","eventInfo":null,"eventName":"ThreatMonitoringHashCatalogAnalysisFailed","id":"12345678-5678-9012-1234-678901234567","location":"","logicalSizeInBytes":"","objectId":"00000000-0000-0000-0000-000000000000","objectName":"Rubrik Security Cloud","objectType":"ThreatFeed","seriesId":"01a05608-1234-5678-abcd-ef1234567904","status":"Failure","type":"Event","url":""},"group":"Event","severity":"info","source":"Rubrik Security Cloud","summary":"Hash catalog analysis failed to complete. Reason: Insufficient resources to process catalog within time limit.","timestamp":"2026-08-27 09:15:00.000000000 +0000 UTC"}
+};
+
+function hl(json) {
+  return JSON.stringify(json, null, 2).replace(
+    /("(?:\\.|[^"\\])*"(?:\s*:)?|true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+    m => {
+      if (m.endsWith(':')) return `<span class="jk">${m}</span>`;
+      if (m.startsWith('"')) return `<span class="js">${m}</span>`;
+      if (m==='true'||m==='false') return `<span class="jb">${m}</span>`;
+      if (m==='null') return `<span class="jz">${m}</span>`;
+      return `<span class="jn">${m}</span>`;
+    }
+  );
+}
+Object.entries(D).forEach(([id, data]) => {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = hl(data);
+});
+
+function cp(btn) {
+  const pre = btn.closest('.json-wrap').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    btn.textContent = 'Copied'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+  });
+}
+function toggleTheme() {
+  const r = document.documentElement;
+  r.setAttribute('data-theme', r.getAttribute('data-theme')==='light' ? 'dark' : 'light');
+}
+const secs = document.querySelectorAll('.event');
+const links = document.querySelectorAll('.nav-list a');
+new IntersectionObserver(es => {
+  es.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(a => a.classList.remove('active'));
+      const l = document.querySelector(`.nav-list a[href="#${e.target.id}"]`);
+      if (l) l.classList.add('active');
+    }
+  });
+}, { rootMargin: '-15% 0px -75% 0px' }).observe
+? secs.forEach(s => new IntersectionObserver(es => {
+    es.forEach(e => { if (e.isIntersecting) { links.forEach(a => a.classList.remove('active')); const l = document.querySelector(`.nav-list a[href="#${e.target.id}"]`); if (l) l.classList.add('active'); }});
+  }, { rootMargin: '-15% 0px -75% 0px' }).observe(s))
+: null;
+</script>
